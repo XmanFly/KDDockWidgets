@@ -14,7 +14,15 @@ import QtQuick 2.6
 Rectangle {
     id: root
     anchors.fill: parent
-    color: "#eff0f1"
+
+    Rectangle {
+        anchors {
+            fill: parent
+            margins: 1
+        }
+        radius: 2
+        color: "#FF8B00"
+    }
 
     readonly property QtObject kddwSeparator: parent
 
