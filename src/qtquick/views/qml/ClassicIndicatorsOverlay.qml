@@ -85,7 +85,7 @@ Item {
 
         ClassicIndicator {
             id: centerIndicator
-            visible: _window.tabIndicatorVisible
+            visible: false
             indicatorType: KDDockWidgets.DropLocation_Center
             anchors.centerIn: parent
         }
