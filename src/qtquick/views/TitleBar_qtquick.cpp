@@ -53,6 +53,15 @@ void TitleBar_qtquick::init()
             &TitleBar_qtquick::floatButtonToolTipChanged);
     connect(m_titleBar, &Controllers::TitleBar::numDockWidgetsChanged, this,
             &TitleBar_qtquick::numDockWidgetsChanged);
+
+    connect(m_titleBar, &Controllers::TitleBar::closeButtonVisibleChanged, this,
+            &TitleBar_qtquick::closeButtonVisibleChanged);
+    connect(m_titleBar, &Controllers::TitleBar::isSelectedChanged, this,
+            &TitleBar_qtquick::isSelectedChanged);
+    connect(m_titleBar, &Controllers::TitleBar::userClickedChanged, this,
+            &TitleBar_qtquick::userClickedChanged);
+    connect(m_titleBar, &Controllers::TitleBar::sig_exit, this,
+            &TitleBar_qtquick::sig_exit);
 }
 
 #ifdef DOCKS_DEVELOPER_MODE
@@ -150,9 +159,29 @@ void TitleBar_qtquick::setCloseButtonEnabled(bool is)
     m_titleBar->setCloseButtonEnabled(is);
 }
 
+void TitleBar_qtquick::setCloseButtonVisible(bool is)
+{
+    m_titleBar->setCloseButtonVisible(is);
+}
+
 void TitleBar_qtquick::setFloatButtonVisible(bool is)
 {
     m_titleBar->setFloatButtonVisible(is);
+}
+
+bool TitleBar_qtquick::closeButtonVisible() const
+{
+    return m_titleBar->isCloseButtonVisible();
+}
+
+bool TitleBar_qtquick::isSelected() const
+{
+    return m_titleBar->isSelected();
+}
+
+void TitleBar_qtquick::setIsSelected(bool newIsSelected)
+{
+    m_titleBar->setIsSelected(newIsSelected);
 }
 
 bool TitleBar_qtquick::onDoubleClicked()
@@ -188,4 +217,9 @@ void TitleBar_qtquick::onAutoHideClicked()
 void TitleBar_qtquick::toggleMaximized()
 {
     m_titleBar->toggleMaximized();
+}
+
+void TitleBar_qtquick::userClick()
+{
+    m_titleBar->userClick();
 }

@@ -79,7 +79,29 @@ void TitleBar::init()
 
     updateButtons();
     QTimer::singleShot(0, this, &TitleBar::updateAutoHideButton); // have to wait after the group is
-                                                                  // constructed
+    // constructed
+}
+
+void TitleBar::setCloseButtonVisible(bool newCloseButtonVisible)
+{
+    m_closeButtonVisible = newCloseButtonVisible;
+    Q_EMIT closeButtonVisibleChanged(m_closeButtonVisible);
+}
+
+void TitleBar::userClick()
+{
+    Q_EMIT userClickedChanged();
+}
+
+bool TitleBar::isSelected() const
+{
+    return m_isSelected;
+}
+
+void TitleBar::setIsSelected(bool newIsSelected)
+{
+    m_isSelected = newIsSelected;
+    Q_EMIT isSelectedChanged();
 }
 
 TitleBar::~TitleBar()
@@ -192,6 +214,11 @@ bool TitleBar::supportsAutoHideButton() const
 {
     // Only dock widgets docked into the MainWindow can minimize
     return m_supportsAutoHide && m_group && (m_group->isInMainWindow() || m_group->isOverlayed());
+}
+
+bool TitleBar::isCloseButtonVisible() const
+{
+    return m_closeButtonVisible;
 }
 
 #ifdef DOCKS_DEVELOPER_MODE
@@ -377,6 +404,7 @@ void TitleBar::onCloseClicked()
             m_floatingWindow->view()->close();
         }
     }
+    Q_EMIT sig_exit();
 }
 
 void TitleBar::onFloatClicked()
@@ -518,6 +546,18 @@ std::unique_ptr<KDDockWidgets::WindowBeingDragged> TitleBar::makeWindow()
 
     auto floatingWindow = new Controllers::FloatingWindow(m_group, {});
     floatingWindow->setSuggestedGeometry(r, SuggestedGeometryHint_GeometryIsFromDocked);
+
+    /* 同步状态栏属性 */
+    TitleBar *floatTitleBar = floatingWindow->titleBar();
+    floatTitleBar->setIsSelected(m_isSelected);
+    connect(this, &TitleBar::isSelectedChanged,
+            floatTitleBar, [this, floatTitleBar](){
+        floatTitleBar->setIsSelected(m_isSelected);
+    });
+    connect(floatTitleBar, &TitleBar::userClickedChanged,
+            this, &TitleBar::userClickedChanged);
+    floatTitleBar->setCloseButtonVisible(isCloseButtonVisible());
+
     floatingWindow->view()->show();
 
     auto draggable = KDDockWidgets::usesNativeTitleBar() ? static_cast<Draggable *>(floatingWindow)

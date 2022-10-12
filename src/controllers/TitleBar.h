@@ -114,11 +114,17 @@ public:
     void setCloseButtonEnabled(bool);
     void setFloatButtonVisible(bool);
 
+    bool isSelected() const;
+    void setIsSelected(bool newIsSelected);
+    void setCloseButtonVisible(bool newCloseButtonVisible);
+    void userClick();
+
 Q_SIGNALS:
     void titleChanged();
     void iconChanged();
     void isFocusedChanged();
     void closeButtonEnabledChanged(bool);
+    void closeButtonVisibleChanged(bool );
     void floatButtonVisibleChanged(bool);
     void floatButtonToolTipChanged(const QString &);
     void numDockWidgetsChanged();
@@ -131,6 +137,10 @@ Q_SIGNALS:
 
     /// @brief Emitted to tell the views to update their maximize button
     void maximizeButtonChanged(bool visible, bool enabled, TitleBarButtonType);
+
+    void isSelectedChanged();
+    void userClickedChanged(); //zya 用户点击状态栏 用来选中当前窗口
+    void sig_exit();
 
 protected:
     bool isOverlayed() const;
@@ -156,6 +166,9 @@ private:
     bool m_closeButtonEnabled = true;
     bool m_floatButtonVisible = true;
     QString m_floatButtonToolTip;
+
+    bool m_closeButtonVisible = true;
+    bool m_isSelected = false;
 };
 
 }

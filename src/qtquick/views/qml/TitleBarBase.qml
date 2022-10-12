@@ -28,6 +28,7 @@ Rectangle {
     readonly property string title: titleBarCpp ? titleBarCpp.title : ""
     readonly property bool floatButtonVisible: titleBarCpp && titleBarCpp.floatButtonVisible
     readonly property bool closeButtonEnabled: titleBarCpp && titleBarCpp.closeButtonEnabled
+    readonly property bool closeButtonVisible: titleBarCpp && titleBarCpp.closeButtonVisible
 
     // So the tests can send mouse events programmatically
     readonly property QtObject mouseAreaForTests: dragMouseArea
@@ -45,6 +46,9 @@ Rectangle {
     /// @brief Signal emitted by a TitleBar.qml component when the float button is clicked
     signal floatButtonClicked();
 
+    signal maximizeButtonClicked();
+    signal minimizeButtonClicked();
+
     visible: titleBarCpp && titleBarCpp.visible
     height: visible ? heightWhenVisible : 0
     implicitHeight: heightWhenVisible
@@ -56,6 +60,16 @@ Rectangle {
         onDoubleClicked: {
             if (titleBarCpp)
                 titleBarCpp.onDoubleClicked();
+        }
+        onClicked: {
+            if(titleBarCpp) {
+                titleBarCpp.userClick()
+            }
+        }
+        onPressed: {
+            if(titleBarCpp) {
+                titleBarCpp.userClick()
+            }
         }
     }
 
@@ -75,5 +89,13 @@ Rectangle {
 
     onFloatButtonClicked: {
         titleBarCpp.onFloatClicked();
+    }
+
+    onMaximizeButtonClicked: {
+        titleBarCpp.onMaximizeClicked();
+    }
+
+    onMinimizeButtonClicked: {
+        titleBarCpp.onMinimizeClicked();
     }
 }

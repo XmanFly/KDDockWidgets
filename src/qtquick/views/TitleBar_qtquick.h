@@ -37,10 +37,13 @@ class DOCKS_EXPORT TitleBar_qtquick : public View_qtquick, public Views::TitleBa
     Q_PROPERTY(bool hasIcon READ hasIcon NOTIFY iconChanged)
     Q_PROPERTY(bool closeButtonEnabled READ closeButtonEnabled WRITE setCloseButtonEnabled NOTIFY
                    closeButtonEnabledChanged)
+    Q_PROPERTY(bool closeButtonVisible READ closeButtonVisible WRITE setCloseButtonVisible NOTIFY
+                   closeButtonVisibleChanged)
     Q_PROPERTY(bool floatButtonVisible READ floatButtonVisible WRITE setFloatButtonVisible NOTIFY
                    floatButtonVisibleChanged)
     Q_PROPERTY(QString floatButtonToolTip READ floatButtonToolTip NOTIFY floatButtonToolTipChanged)
     Q_PROPERTY(bool isFocused READ isFocused NOTIFY isFocusedChanged)
+    Q_PROPERTY(bool isSelected READ isSelected WRITE setIsSelected NOTIFY isSelectedChanged)
 
 public:
     explicit TitleBar_qtquick(Controllers::TitleBar *controller, QQuickItem *parent = nullptr);
@@ -66,7 +69,12 @@ protected:
     bool hasIcon() const;
     QString title() const;
     void setCloseButtonEnabled(bool);
+    void setCloseButtonVisible(bool);
     void setFloatButtonVisible(bool);
+
+    bool closeButtonVisible() const;
+    bool isSelected() const;
+    void setIsSelected(bool newIsSelected);
 
     Q_INVOKABLE bool onDoubleClicked();
     Q_INVOKABLE void onCloseClicked();
@@ -75,6 +83,7 @@ protected:
     Q_INVOKABLE void onMinimizeClicked();
     Q_INVOKABLE void onAutoHideClicked();
     Q_INVOKABLE void toggleMaximized();
+    Q_INVOKABLE void userClick();
 
 Q_SIGNALS:
     void titleBarQmlItemChanged();
@@ -82,11 +91,16 @@ Q_SIGNALS:
     void iconChanged();
     void isFocusedChanged();
     void closeButtonEnabledChanged(bool);
+    void closeButtonVisibleChanged(bool);
     void floatButtonVisibleChanged(bool);
     void floatButtonToolTipChanged(const QString &);
 
     /// Emitted when the number of dock widgets under this titlebar changes
     void numDockWidgetsChanged();
+
+    void sig_exit(); //zya
+    void isSelectedChanged(); //zya
+    void userClickedChanged(); //zya 用户点击状态栏 用来选中当前窗口
 
 protected:
     void init() override;

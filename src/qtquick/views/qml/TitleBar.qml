@@ -56,6 +56,7 @@ TitleBarBase {
     TitleBarButton {
         id: closeButton
         enabled: root.closeButtonEnabled
+        visible: root.closeButtonVisible
         imageSource: "qrc:/img/close.png"
         anchors {
             verticalCenter: parent ? parent.verticalCenter : undefined
