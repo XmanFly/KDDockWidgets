@@ -33,3 +33,8 @@ bool LayoutSaverInstantiator::restoreFromFile(const QString &jsonFilename)
 {
     return LayoutSaver::restoreFromFile(jsonFilename);
 }
+
+void LayoutSaverInstantiator::maximizeItem(const QString &name)
+{
+    LayoutSaver::maximizeItem(name);
+}

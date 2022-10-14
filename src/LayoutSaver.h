@@ -115,6 +115,8 @@ public:
      */
     void setAffinityNames(const QStringList &affinityNames);
 
+    void maximizeItem(QString name); //最大化指定控件
+
     /// @internal Returns the private-impl. Not intended for public use.
     class Private;
     Private *dptr() const;

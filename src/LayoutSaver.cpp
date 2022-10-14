@@ -560,6 +560,241 @@ void LayoutSaver::setAffinityNames(const QStringList &affinityNames)
     }
 }
 
+void LayoutSaver::maximizeItem(QString name)
+{
+    /*********************** 此段代码复制的serializeLayout函数部分内容 **********************************/
+    if (!d->m_dockRegistry->isSane()) {
+        qWarning() << Q_FUNC_INFO << "Refusing to serialize this layout. Check previous warnings.";
+        return;
+    }
+
+    LayoutSaver::Layout layout;
+
+    // Just a simplification. One less type of windows to handle.
+    d->m_dockRegistry->ensureAllFloatingWidgetsAreMorphed();
+
+    const auto mainWindows = d->m_dockRegistry->mainwindows();
+    layout.mainWindows.reserve(mainWindows.size());
+    for (auto mainWindow : mainWindows) {
+        if (d->matchesAffinity(mainWindow->affinities()))
+            layout.mainWindows.push_back(mainWindow->serialize());
+    }
+
+    // Save the placeholder info. We do it last, as we also restore it last, since we need all items
+    // to be created before restoring the placeholders
+
+    const Controllers::DockWidget::List dockWidgets = d->m_dockRegistry->dockwidgets();
+    layout.allDockWidgets.reserve(dockWidgets.size());
+    for (Controllers::DockWidget *dockWidget : dockWidgets) {
+        if (d->matchesAffinity(dockWidget->affinities())) {
+            auto dw = dockWidget->d->serialize();
+            dw->lastPosition = dockWidget->d->lastPosition()->serialize();
+            layout.allDockWidgets.push_back(dw);
+        }
+    }
+    /**********************************************************/
+
+
+    /*************** 修改布局器 ********************/
+    using namespace nlohmann;
+    json jsonRelayout = json::parse(layout.toJson(),
+                                                nullptr,
+                                                true /*DisableExceptions=*/);
+    if (jsonRelayout.is_discarded()) {
+        return;
+    }
+
+    /**** 修改placeholders index******/
+    auto &allDockWidgetsNode = jsonRelayout.at("/allDockWidgets"_json_pointer);
+    qDebug() << "allDockWidgetsNode size" << allDockWidgetsNode.size();
+    for(int i=0; i<dockWidgets.size(); i++){
+        auto &placeholders = allDockWidgetsNode[i].at("/lastPosition/placeholders"_json_pointer);
+        if(placeholders.size()) {
+            placeholders[0]["itemIndex"] = i;
+        }
+    }
+
+    /**** frames节点 ******/
+    auto &multiSplitterLayoutNode = jsonRelayout.at("/mainWindows/0/multiSplitterLayout"_json_pointer);
+    multiSplitterLayoutNode.erase("frames");
+    multiSplitterLayoutNode["frames"] = json();
+    QMap<QString, int> idNameMap;
+    //创建frame
+    auto createFrame = [](int index, QString dockName, QSize size, QString mainWindowUniqueName){
+        json geometry;
+        geometry["height"] = size.height();
+        geometry["width"] = size.width();
+        geometry["x"] = 0;
+        geometry["y"] = 0;
+
+        json j;
+        j["currentTabIndex"] = 0;
+        j["dockWidgets"] = json::array({dockName.toStdString()});
+        j["geometry"] = geometry;
+        j["id"] = QString::number(index);
+        j["isNull"] =  false;
+        j["mainWindowUniqueName"] = mainWindowUniqueName;
+        j["objectName"] = ""; //TBD
+        j["options"] = 0;
+        return j;
+    };
+    for(int i=0; i<dockWidgets.size(); i++) {
+        Controllers::DockWidget *dockWidget = dockWidgets[i];
+        if(dockWidget->isVisible()){
+            json j = createFrame(i, dockWidget->uniqueName(), QSize(600, 500), mainWindows.first()->uniqueName());
+            multiSplitterLayoutNode["frames"][QString::number(i).toStdString()]= j;
+            idNameMap.insert(dockWidget->uniqueName(), i);
+        }
+    }
+
+    /**** layout节点 ******/
+    //计算相关尺寸
+    auto &rootLayoutSizeInfo = jsonRelayout.at("/mainWindows/0/multiSplitterLayout/layout/sizingInfo/geometry"_json_pointer);
+    QSize rootLayoutSize(rootLayoutSizeInfo["width"].get<int>(), rootLayoutSizeInfo["height"].get<int>());
+    const int MIN_ITEM_HEIGHT = idNameMap.size() == 1 ? 0 : 30;
+    const int MIN_ITEM_WIDTH = idNameMap.size() == 1 ? 0 : rootLayoutSize.width() / (idNameMap.size() - 1);
+    const int MAX_ITEM_HEIGHT = rootLayoutSize.height() - MIN_ITEM_HEIGHT;
+    const int MAX_ITEM_WIDTH = rootLayoutSize.width();
+
+    multiSplitterLayoutNode.erase("layout");
+    //节点构造
+    //布局器根节点
+    auto createLayoutChildrenRoot = [](QSize size, int orientation, bool isVisible){
+        json geometry;
+        geometry["height"] = size.height();
+        geometry["width"] = size.width();
+        geometry["x"] = 0;
+        geometry["y"] = 0;
+        json maxSize = json::parse(R"(
+          {
+            "height": 16777215,
+            "width": 16777215
+          }
+        )");
+        json minSize = json::parse(R"(
+          {
+            "height": 0,
+            "width": 0
+          }
+        )");
+
+        json root;
+        root["children"] = json::array();
+        root["isContainer"] = true;
+        root["isVisible"] = isVisible;
+        root["objectName"] = "";
+        root["orientation"] = orientation; //1: 横向 2: 纵向
+        root["sizingInfo"]["geometry"] = geometry;
+        root["sizingInfo"]["maxSize"] = maxSize;
+        root["sizingInfo"]["minSize"] = minSize;
+        return root;
+    };
+    //布局器可见子节点
+    auto createLayoutChildrenItem = [](int index, QString dockName, QSize size){
+        json geometry;
+        geometry["height"] = size.height();
+        geometry["width"] = size.width();
+        geometry["x"] = 0;
+        geometry["y"] = 0;
+        json maxSize = json::parse(R"(
+          {
+            "height": 16777215,
+            "width": 16777215
+          }
+        )");
+        json minSize = json::parse(R"(
+          {
+            "height": 0,
+            "width": 0
+          }
+        )");
+        json children;
+        children["guestId"] = QString::number(index);
+        children["isContainer"] = false;
+        children["isVisible"] = true;
+        children["objectName"] = "widget";
+        children["sizingInfo"]["geometry"] = geometry;
+        children["sizingInfo"]["maxSize"] = maxSize;
+        children["sizingInfo"]["minSize"] = minSize;
+        return children;
+    };
+    //不可见项目创建一个空白占位
+    auto createLayoutHiddenChildrenItem = [](){
+        json geometry;
+        geometry["height"] = 0;
+        geometry["width"] = 0;
+        geometry["x"] = 0;
+        geometry["y"] = 0;
+        json maxSize = json::parse(R"(
+          {
+            "height": 16777215,
+            "width": 16777215
+          }
+        )");
+        json minSize = json::parse(R"(
+          {
+            "height": 0,
+            "width": 0
+          }
+        )");
+        json children;
+        children["isContainer"] = false;
+        children["isVisible"] = false;
+        children["objectName"] = "hidden";
+        children["sizingInfo"]["geometry"] = geometry;
+        children["sizingInfo"]["maxSize"] = maxSize;
+        children["sizingInfo"]["minSize"] = minSize;
+        return children;
+    };
+
+    //layout根节点
+    json layoutRoot = createLayoutChildrenRoot(rootLayoutSize, 2, false);
+    //创建最大化窗口
+    Controllers::DockWidget *dockWidget = d->m_dockRegistry->dockByName(name);
+    json maxChildren = createLayoutChildrenItem(idNameMap.value(dockWidget->uniqueName()), dockWidget->uniqueName(), QSize(MAX_ITEM_WIDTH, MAX_ITEM_HEIGHT));
+    layoutRoot["children"].push_back(maxChildren);
+
+    //创建可见子窗口
+    json minChildrenRoot = createLayoutChildrenRoot(QSize(rootLayoutSize.width(), MIN_ITEM_HEIGHT), 1, false);
+    for(int i=0; i<dockWidgets.size(); i++) {
+        Controllers::DockWidget *dockWidget = dockWidgets[i];
+        qDebug() << "zya add visible sub item name " << dockWidget->uniqueName() << "current name" << name;
+        if(dockWidget->uniqueName().compare(name)){
+            qDebug() << "zya add visible sub item " << dockWidget->uniqueName();
+            json j;
+            if(dockWidget->isVisible()) {
+                j = createLayoutChildrenItem(idNameMap.value(dockWidget->uniqueName()), dockWidget->uniqueName(), QSize(MIN_ITEM_WIDTH, MIN_ITEM_HEIGHT));
+                minChildrenRoot["children"].push_back(j);
+            }
+        }
+    }
+    if(minChildrenRoot["children"].size()) {
+        layoutRoot["children"].push_back(minChildrenRoot);
+    }
+
+    //创建不可见子窗口
+    json invisibleChildrenRoot = createLayoutChildrenRoot(QSize(0, 0), 1, false);
+    for(int i=0; i<dockWidgets.size(); i++) {
+        Controllers::DockWidget *dockWidget = dockWidgets[i];
+        qDebug() << "zya add invisible sub item name " << dockWidget->uniqueName() << "current name" << name;
+        if(dockWidget->uniqueName().compare(name)){
+            qDebug() << "zya add invisible sub item " << dockWidget->uniqueName();
+            json j;
+            if(!dockWidget->isVisible()) {
+                j = createLayoutHiddenChildrenItem();
+                invisibleChildrenRoot["children"].push_back(j);
+            }
+        }
+    }
+    if(invisibleChildrenRoot["children"].size()) {
+        layoutRoot["children"].push_back(invisibleChildrenRoot);
+    }
+
+    multiSplitterLayoutNode["layout"] = layoutRoot;
+
+    restoreLayout(QByteArray::fromStdString(jsonRelayout.dump(4)));
+}
+
 LayoutSaver::Private *LayoutSaver::dptr() const
 {
     return d;

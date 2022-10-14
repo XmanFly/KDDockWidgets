@@ -39,6 +39,7 @@ public:
 
     Q_INVOKABLE bool saveToFile(const QString &jsonFilename);
     Q_INVOKABLE bool restoreFromFile(const QString &jsonFilename);
+    Q_INVOKABLE void maximizeItem(const QString &name);
 };
 
 }
