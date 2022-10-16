@@ -788,7 +788,7 @@ LayoutSaver::MainWindow MainWindow::serialize() const
 
     m.options = options();
     m.geometry = d->windowGeometry();
-    m.normalGeometry = view()->normalGeometry();
+    m.normalGeometry = view()->windowGeometry();
     m.isVisible = isVisible();
     m.uniqueName = uniqueName();
     m.screenIndex = Platform::instance()->screenNumberFor(view());
