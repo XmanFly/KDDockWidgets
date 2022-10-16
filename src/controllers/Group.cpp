@@ -78,13 +78,13 @@ static StackOptions tabWidgetOptions(FrameOptions options)
 
 }
 
-Group::Group(View *parent, FrameOptions options, int userType)
+Group::Group(View *parent, FrameOptions options, int userType, bool isMaximized)
     : Controller(Type::Frame, Config::self().viewFactory()->createGroup(this, parent))
     , FocusScope(view())
     , d(new Private())
     , m_stack(new Controllers::Stack(this, tabWidgetOptions(options)))
     , m_tabBar(m_stack->tabBar())
-    , m_titleBar(new Controllers::TitleBar(this))
+    , m_titleBar(new Controllers::TitleBar(this, isMaximized))
     , m_options(actualOptions(options))
     , m_userType(userType)
 {
@@ -716,7 +716,7 @@ Group *Group::deserialize(const LayoutSaver::Group &f)
     }
 
     if (!group)
-        group = new Group(nullptr, options);
+        group = new Group(nullptr, options, 0, f.isMaximized);
 
     group->setObjectName(f.objectName);
 

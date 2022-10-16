@@ -45,7 +45,7 @@ class DOCKS_EXPORT Group : public Controller, public FocusScope
 public:
     typedef QList<Group *> List;
 
-    explicit Group(View *parent = nullptr, FrameOptions = FrameOption_None, int userType = 0);
+    explicit Group(View *parent = nullptr, FrameOptions = FrameOption_None, int userType = 0, bool isMaximized = false);
     virtual ~Group() override;
 
     static Group *deserialize(const LayoutSaver::Group &);

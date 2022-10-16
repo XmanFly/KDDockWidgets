@@ -102,6 +102,7 @@ void to_json(nlohmann::json &json, const LayoutSaver::Group &f)
     json["currentTabIndex"] = f.currentTabIndex;
     json["mainWindowUniqueName"] = f.mainWindowUniqueName;
     json["dockWidgets"] = dockWidgetNames(f.dockWidgets);
+    json["isMaximized"] = f.isMaximized;
 }
 void from_json(const nlohmann::json &json, LayoutSaver::Group &f)
 {
@@ -112,6 +113,7 @@ void from_json(const nlohmann::json &json, LayoutSaver::Group &f)
     f.options = json.value("options", QFlags<FrameOption>::Int {});
     f.currentTabIndex = json.value("currentTabIndex", 0);
     f.mainWindowUniqueName = json.value("mainWindowUniqueName", QString());
+    f.isMaximized = json.value("isMaximized", false);
 
     auto it = json.find("dockWidgets");
     if (it == json.end())
@@ -470,6 +472,26 @@ bool LayoutSaver::restoreLayout(const QByteArray &data)
     d->floatWidgetsWhichSkipRestore(layout.mainWindowNames());
     d->floatUnknownWidgets(layout);
 
+    //移除已关闭窗口
+    QStringList closedDocksNames;
+    for(auto each : d->m_dockRegistry->closedDockwidgets()) {
+        closedDocksNames << each->uniqueName();
+    }
+    auto removeDocks = [](const QStringList &removeList, QHash<QString, LayoutSaver::Group> &groups){
+        auto i = groups.begin();
+        while (i != groups.end()) {
+            for(auto it = i->dockWidgets.begin(); it<i->dockWidgets.end();){
+                if(removeList.indexOf((*it)->uniqueName) >= 0) {
+                    it = i->dockWidgets.erase(it);
+                } else {
+                    it++;
+                }
+            }
+            ++i;
+        }
+    };
+
+
     Private::RAIIIsRestoring isRestoring;
 
     // Hide all dockwidgets and unparent them from any layout before starting restore
@@ -480,7 +502,7 @@ bool LayoutSaver::restoreLayout(const QByteArray &data)
                              d->m_affinityNames);
 
     // 1. Restore main windows
-    for (const LayoutSaver::MainWindow &mw : qAsConst(layout.mainWindows)) {
+    for (LayoutSaver::MainWindow &mw : layout.mainWindows) {
         auto mainWindow = d->m_dockRegistry->mainWindowByName(mw.uniqueName);
         if (!mainWindow) {
             if (auto mwFunc = Config::self().mainWindowFactoryFunc()) {
@@ -505,12 +527,17 @@ bool LayoutSaver::restoreLayout(const QByteArray &data)
             }
         }
 
+        //去除已经关闭窗口
+        removeDocks(closedDocksNames, mw.multiSplitterLayout.groups);
         if (!mainWindow->deserialize(mw))
             return false;
     }
 
     // 2. Restore FloatingWindows
     for (LayoutSaver::FloatingWindow &fw : layout.floatingWindows) {
+        //去除已经关闭窗口
+        removeDocks(closedDocksNames, fw.multiSplitterLayout.groups);
+
         if (!d->matchesAffinity(fw.affinities) || fw.skipsRestore())
             continue;
 
@@ -527,6 +554,7 @@ bool LayoutSaver::restoreLayout(const QByteArray &data)
         }
     }
 
+#if 0
     // 3. Restore closed dock widgets. They remain closed but acquire geometry and placeholder
     // properties
     for (const auto &dw : qAsConst(layout.closedDockWidgets)) {
@@ -534,6 +562,7 @@ bool LayoutSaver::restoreLayout(const QByteArray &data)
             Controllers::DockWidget::deserialize(dw);
         }
     }
+#endif
 
     // 4. Restore the placeholder info, now that the Items have been created
     for (const auto &dw : qAsConst(layout.allDockWidgets)) {
@@ -562,6 +591,13 @@ void LayoutSaver::setAffinityNames(const QStringList &affinityNames)
 
 void LayoutSaver::maximizeItem(QString name)
 {
+    qDebug() << "LayoutSaver::maximizeItem" << name;
+    qDebug();
+    using namespace nlohmann;
+
+    //备份当前布局
+    saveToFile(QStringLiteral("mySavedLayout.json"));
+
     /*********************** 此段代码复制的serializeLayout函数部分内容 **********************************/
     if (!d->m_dockRegistry->isSane()) {
         qWarning() << Q_FUNC_INFO << "Refusing to serialize this layout. Check previous warnings.";
@@ -596,13 +632,28 @@ void LayoutSaver::maximizeItem(QString name)
 
 
     /*************** 修改布局器 ********************/
-    using namespace nlohmann;
     json jsonRelayout = json::parse(layout.toJson(),
                                                 nullptr,
                                                 true /*DisableExceptions=*/);
     if (jsonRelayout.is_discarded()) {
         return;
     }
+
+    //计算相关尺寸
+    QMap<QString, int> idNameMap;
+    auto &rootLayoutSizeInfo = jsonRelayout.at("/mainWindows/0/multiSplitterLayout/layout/sizingInfo/geometry"_json_pointer);
+    QSize rootLayoutSize(rootLayoutSizeInfo["width"].get<int>(), rootLayoutSizeInfo["height"].get<int>());
+    for(int i=0; i<dockWidgets.size(); i++) {
+        Controllers::DockWidget *dockWidget = dockWidgets[i];
+        if(dockWidget->isVisible()){
+            idNameMap.insert(dockWidget->uniqueName(), i);
+        }
+    }
+    const int MIN_ITEM_HEIGHT = idNameMap.size() == 1 ? 0 : 30;
+    const int MIN_ITEM_WIDTH = idNameMap.size() == 1 ? 0 : rootLayoutSize.width() / (idNameMap.size() - 1);
+    const int MAX_ITEM_HEIGHT = rootLayoutSize.height() - MIN_ITEM_HEIGHT;
+    const int MAX_ITEM_WIDTH = rootLayoutSize.width();
+
 
     /**** 修改placeholders index******/
     auto &allDockWidgetsNode = jsonRelayout.at("/allDockWidgets"_json_pointer);
@@ -618,9 +669,8 @@ void LayoutSaver::maximizeItem(QString name)
     auto &multiSplitterLayoutNode = jsonRelayout.at("/mainWindows/0/multiSplitterLayout"_json_pointer);
     multiSplitterLayoutNode.erase("frames");
     multiSplitterLayoutNode["frames"] = json();
-    QMap<QString, int> idNameMap;
     //创建frame
-    auto createFrame = [](int index, QString dockName, QSize size, QString mainWindowUniqueName){
+    auto createFrame = [](int index, QString dockName, QSize size, QString mainWindowUniqueName, bool isMaximized = false){
         json geometry;
         geometry["height"] = size.height();
         geometry["width"] = size.width();
@@ -636,26 +686,23 @@ void LayoutSaver::maximizeItem(QString name)
         j["mainWindowUniqueName"] = mainWindowUniqueName;
         j["objectName"] = ""; //TBD
         j["options"] = 0;
+        j["isMaximized"] = isMaximized;
         return j;
     };
     for(int i=0; i<dockWidgets.size(); i++) {
         Controllers::DockWidget *dockWidget = dockWidgets[i];
         if(dockWidget->isVisible()){
-            json j = createFrame(i, dockWidget->uniqueName(), QSize(600, 500), mainWindows.first()->uniqueName());
+            json j;
+            if(dockWidget->uniqueName().compare(name) == 0) {
+                j = createFrame(i, dockWidget->uniqueName(), QSize(MAX_ITEM_WIDTH, MAX_ITEM_HEIGHT), mainWindows.first()->uniqueName(), true);
+            } else {
+                j = createFrame(i, dockWidget->uniqueName(), QSize(MIN_ITEM_WIDTH, MIN_ITEM_HEIGHT), mainWindows.first()->uniqueName());
+            }
             multiSplitterLayoutNode["frames"][QString::number(i).toStdString()]= j;
-            idNameMap.insert(dockWidget->uniqueName(), i);
         }
     }
 
     /**** layout节点 ******/
-    //计算相关尺寸
-    auto &rootLayoutSizeInfo = jsonRelayout.at("/mainWindows/0/multiSplitterLayout/layout/sizingInfo/geometry"_json_pointer);
-    QSize rootLayoutSize(rootLayoutSizeInfo["width"].get<int>(), rootLayoutSizeInfo["height"].get<int>());
-    const int MIN_ITEM_HEIGHT = idNameMap.size() == 1 ? 0 : 30;
-    const int MIN_ITEM_WIDTH = idNameMap.size() == 1 ? 0 : rootLayoutSize.width() / (idNameMap.size() - 1);
-    const int MAX_ITEM_HEIGHT = rootLayoutSize.height() - MIN_ITEM_HEIGHT;
-    const int MAX_ITEM_WIDTH = rootLayoutSize.width();
-
     multiSplitterLayoutNode.erase("layout");
     //节点构造
     //布局器根节点
@@ -793,6 +840,13 @@ void LayoutSaver::maximizeItem(QString name)
     multiSplitterLayoutNode["layout"] = layoutRoot;
 
     restoreLayout(QByteArray::fromStdString(jsonRelayout.dump(4)));
+
+    /* 保存至文件 */
+    QFile f(QStringLiteral("wmLayout.json"));
+    if (!f.open(QIODevice::WriteOnly)) {
+    }
+    f.write(QByteArray::fromStdString(jsonRelayout.dump(4)));
+    f.close();
 }
 
 LayoutSaver::Private *LayoutSaver::dptr() const

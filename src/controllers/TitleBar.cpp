@@ -33,7 +33,7 @@ using namespace KDDockWidgets;
 using namespace KDDockWidgets::Controllers;
 
 
-TitleBar::TitleBar(Group *parent)
+TitleBar::TitleBar(Group *parent, bool isMaximized)
     : Controller(
         Type::TitleBar,
         Config::self().viewFactory()->createTitleBar(this, parent ? parent->view() : nullptr))
@@ -41,6 +41,7 @@ TitleBar::TitleBar(Group *parent)
     , m_group(parent)
     , m_floatingWindow(nullptr)
     , m_supportsAutoHide(Config::self().flags() & Config::Flag_AutoHideSupport)
+    , m_isMaximized(isMaximized)
 {
     init();
     connect(m_group, &Group::numDockWidgetsChanged, this, &TitleBar::updateCloseButton);
@@ -80,6 +81,20 @@ void TitleBar::init()
     updateButtons();
     QTimer::singleShot(0, this, &TitleBar::updateAutoHideButton); // have to wait after the group is
     // constructed
+}
+
+bool TitleBar::isMaximized() const
+{
+    return m_isMaximized;
+}
+
+void TitleBar::setIsMaximized(bool newIsMaximized)
+{
+    qDebug() << this << __FUNCTION__ << " old " << m_isMaximized << "new"  << newIsMaximized;
+    if (m_isMaximized == newIsMaximized)
+        return;
+    m_isMaximized = newIsMaximized;
+    Q_EMIT isMaximizedChanged();
 }
 
 void TitleBar::setCloseButtonVisible(bool newCloseButtonVisible)
@@ -157,6 +172,7 @@ QIcon TitleBar::icon() const
 
 bool TitleBar::onDoubleClicked()
 {
+    return true;
     if ((Config::self().flags() & Config::Flag_DoubleClickMaximizes) && m_floatingWindow) {
         // Not using isFloating(), as that can be a dock widget nested in a floating window. By
         // convention it's floating, but it's not the title bar of the top-level window.
@@ -315,13 +331,7 @@ void TitleBar::updateCloseButton()
 
 void TitleBar::toggleMaximized()
 {
-    if (!m_floatingWindow)
-        return;
-
-    if (m_floatingWindow->view()->isMaximized())
-        m_floatingWindow->view()->showNormal();
-    else
-        m_floatingWindow->view()->showMaximized();
+    setIsMaximized(!m_isMaximized);
 }
 
 bool TitleBar::isOverlayed() const
@@ -466,6 +476,7 @@ void TitleBar::onFloatClicked()
 void TitleBar::onMaximizeClicked()
 {
     toggleMaximized();
+    userClick();
 }
 
 void TitleBar::onMinimizeClicked()
@@ -480,6 +491,7 @@ void TitleBar::onMinimizeClicked()
     }
 
     m_floatingWindow->view()->showMinimized();
+    userClick();
 }
 
 void TitleBar::onAutoHideClicked()
@@ -549,14 +561,23 @@ std::unique_ptr<KDDockWidgets::WindowBeingDragged> TitleBar::makeWindow()
 
     /* 同步状态栏属性 */
     TitleBar *floatTitleBar = floatingWindow->titleBar();
+    //选中状态
     floatTitleBar->setIsSelected(m_isSelected);
     connect(this, &TitleBar::isSelectedChanged,
             floatTitleBar, [this, floatTitleBar](){
         floatTitleBar->setIsSelected(m_isSelected);
     });
+    //用户点击
     connect(floatTitleBar, &TitleBar::userClickedChanged,
             this, &TitleBar::userClickedChanged);
+    //关闭按钮
     floatTitleBar->setCloseButtonVisible(isCloseButtonVisible());
+    //最大化
+//    floatTitleBar->setIsMaximized(m_isMaximized); //不能设置最大化 否则会导致布局器自动保存浮动状态 切为浮动状态 本身就应该默认未最大化
+    connect(this, &TitleBar::isMaximizedChanged,
+            floatTitleBar, [this, floatTitleBar](){
+        floatTitleBar->setIsMaximized(m_isMaximized);
+    });
 
     floatingWindow->view()->show();
 

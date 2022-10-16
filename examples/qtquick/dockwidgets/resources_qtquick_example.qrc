@@ -6,5 +6,10 @@
         <file>Guest3.qml</file>
         <file>Guest.qml</file>
         <file>Another.qml</file>
+        <file>WmDockTitleBar.qml</file>
+        <file>maximize.ico</file>
+        <file>minimize.ico</file>
+        <file>xmark.ico</file>
+        <file>maximizeRestore.ico</file>
     </qresource>
 </RCC>

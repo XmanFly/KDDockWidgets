@@ -44,10 +44,14 @@ class DOCKS_EXPORT TitleBar_qtquick : public View_qtquick, public Views::TitleBa
     Q_PROPERTY(QString floatButtonToolTip READ floatButtonToolTip NOTIFY floatButtonToolTipChanged)
     Q_PROPERTY(bool isFocused READ isFocused NOTIFY isFocusedChanged)
     Q_PROPERTY(bool isSelected READ isSelected WRITE setIsSelected NOTIFY isSelectedChanged)
+    Q_PROPERTY(bool isMaximized READ isMaximized WRITE setIsMaximized NOTIFY isMaximizedChanged)
 
 public:
     explicit TitleBar_qtquick(Controllers::TitleBar *controller, QQuickItem *parent = nullptr);
     ~TitleBar_qtquick() override;
+
+    bool isMaximized() const override;
+    void setIsMaximized(bool newIsMaximized);
 
 protected:
 #ifdef DOCKS_DEVELOPER_MODE
@@ -101,6 +105,8 @@ Q_SIGNALS:
     void sig_exit(); //zya
     void isSelectedChanged(); //zya
     void userClickedChanged(); //zya 用户点击状态栏 用来选中当前窗口
+
+    void isMaximizedChanged();
 
 protected:
     void init() override;

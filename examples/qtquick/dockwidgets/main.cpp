@@ -16,10 +16,26 @@
 #include <kddockwidgets/Platform_qtquick.h>
 #include <kddockwidgets/views/DockWidget_qtquick.h>
 #include "kddockwidgets/views/MainWindow_qtquick.h"
+#include "qtquick/kddockwidgets/ViewFactory_qtquick.h"
 
 #include <QQmlApplicationEngine>
 #include <QGuiApplication>
 #include <QCommandLineParser>
+
+
+class CustomViewFactory : public KDDockWidgets::ViewFactory_qtquick
+{
+public:
+    ~CustomViewFactory() override;
+
+    QUrl titleBarFilename() const override
+    {
+        return QUrl("qrc:/WmDockTitleBar.qml");
+    }
+};
+
+CustomViewFactory::~CustomViewFactory() = default;
+
 
 int main(int argc, char *argv[])
 {
@@ -113,6 +129,9 @@ int main(int argc, char *argv[])
     // Set any required flags. The defaults are usually fine.
     KDDockWidgets::Config::self().setFlags(flags);
 
+    auto &config = KDDockWidgets::Config::self();
+    config.setViewFactory(new CustomViewFactory());
+
     // Create your engine which loads main.qml. A simple QQuickView would work too.
     QQmlApplicationEngine appEngine;
     KDDockWidgets::Platform_qtquick::instance()->setQmlEngine(&appEngine);
@@ -121,25 +140,28 @@ int main(int argc, char *argv[])
     // Below we illustrate usage of our C++ API. Alternative you can use declarative API.
     // See main.qml for examples of dockwidgets created directly in QML
 
+#if 0
     auto dw1 = new KDDockWidgets::Views::DockWidget_qtquick("Dock #1");
 
     dw1->setGuestItem(QStringLiteral("qrc:/Guest1.qml"));
     dw1->resize(QSize(800, 800));
-    dw1->open();
-
-    auto dw2 = new KDDockWidgets::Views::DockWidget_qtquick("Dock #2");
-    dw2->setGuestItem(QStringLiteral("qrc:/Guest2.qml"));
-    dw2->resize(QSize(800, 800));
-    dw2->open();
+//    dw1->open();
 
     auto dw3 = new KDDockWidgets::Views::DockWidget_qtquick("Dock #3");
-    dw3->setGuestItem(QStringLiteral("qrc:/Guest3.qml"));
+//    dw3->setGuestItem(QStringLiteral("qrc:/Guest3.qml"));
 
-    dw1->addDockWidgetToContainingWindow(dw3, KDDockWidgets::Location_OnRight);
+//    dw1->addDockWidgetToContainingWindow(dw3, KDDockWidgets::Location_OnRight);
+#endif
+
+//    auto dw2 = new KDDockWidgets::Views::DockWidget_qtquick("Dock #2");
+//    dw2->setGuestItem(QStringLiteral("qrc:/Guest2.qml"));
+//    dw2->resize(QSize(800, 800));
+//    dw2->open();
+
 
     // Access the main area we created in QML with DockingArea {}
-    auto mainArea = KDDockWidgets::DockRegistry::self()->mainDockingAreas().constFirst();
-    mainArea->addDockWidget(dw2, KDDockWidgets::Location_OnTop);
+//    auto mainArea = KDDockWidgets::DockRegistry::self()->mainDockingAreas().constFirst();
+//    mainArea->addDockWidget(dw2, KDDockWidgets::Location_OnTop);
 
     return app.exec();
 }

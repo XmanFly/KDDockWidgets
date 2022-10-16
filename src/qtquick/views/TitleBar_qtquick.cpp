@@ -62,6 +62,8 @@ void TitleBar_qtquick::init()
             &TitleBar_qtquick::userClickedChanged);
     connect(m_titleBar, &Controllers::TitleBar::sig_exit, this,
             &TitleBar_qtquick::sig_exit);
+    connect(m_titleBar, &Controllers::TitleBar::isMaximizedChanged, this,
+            &TitleBar_qtquick::isMaximizedChanged);
 }
 
 #ifdef DOCKS_DEVELOPER_MODE
@@ -122,6 +124,18 @@ QQuickItem *TitleBar_qtquick::closeButton() const
 {
     return m_titleBarQmlItem ? m_titleBarQmlItem->property("closeButton").value<QQuickItem *>()
                              : nullptr;
+}
+
+bool TitleBar_qtquick::isMaximized() const
+{
+    qDebug() << "zya TitleBar_qtquick function" << this << reinterpret_cast<int*>(const_cast<TitleBar_qtquick*>(this)) <<  " isMaximized " << m_titleBar->isMaximized() << "\r\n";
+    return m_titleBar->isMaximized();
+}
+
+void TitleBar_qtquick::setIsMaximized(bool newIsMaximized)
+{
+    qDebug() << "TitleBar_qtquick" << __FUNCTION__ << " old " << isMaximized() << "new"  << newIsMaximized;
+    m_titleBar->setIsMaximized(newIsMaximized);
 }
 
 bool TitleBar_qtquick::isFocused() const
@@ -201,6 +215,7 @@ void TitleBar_qtquick::onFloatClicked()
 
 void TitleBar_qtquick::onMaximizeClicked()
 {
+    qDebug() << "TitleBar_qtquick" << __FUNCTION__ << " old " << isMaximized();
     m_titleBar->onMaximizeClicked();
 }
 

@@ -178,6 +178,8 @@ struct LayoutSaver::Group
     QString mainWindowUniqueName;
 
     LayoutSaver::DockWidget::List dockWidgets;
+
+    bool isMaximized = false;
 };
 
 struct LayoutSaver::MultiSplitter

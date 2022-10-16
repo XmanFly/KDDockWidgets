@@ -29,7 +29,7 @@ class DOCKS_EXPORT TitleBar : public Controller, public Draggable
 {
     Q_OBJECT
 public:
-    explicit TitleBar(Group *parent);
+    explicit TitleBar(Group *parent, bool isMaximized = false);
     explicit TitleBar(FloatingWindow *parent);
     virtual ~TitleBar() override;
 
@@ -119,6 +119,9 @@ public:
     void setCloseButtonVisible(bool newCloseButtonVisible);
     void userClick();
 
+    bool isMaximized() const;
+    void setIsMaximized(bool newIsMaximized);
+
 Q_SIGNALS:
     void titleChanged();
     void iconChanged();
@@ -141,6 +144,7 @@ Q_SIGNALS:
     void isSelectedChanged();
     void userClickedChanged(); //zya 用户点击状态栏 用来选中当前窗口
     void sig_exit();
+    void isMaximizedChanged();
 
 protected:
     bool isOverlayed() const;
@@ -169,6 +173,7 @@ private:
 
     bool m_closeButtonVisible = true;
     bool m_isSelected = false;
+    bool m_isMaximized = false;
 };
 
 }
