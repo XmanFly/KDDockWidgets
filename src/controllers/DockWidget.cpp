@@ -392,6 +392,11 @@ void DockWidget::forceClose()
     d->forceClose();
 }
 
+void DockWidget::forceCloseNotDestroy()
+{
+    d->forceCloseNotDestroy();
+}
+
 Controllers::TitleBar *DockWidget::titleBar() const
 {
     if (Controllers::Group *f = d->group())
@@ -802,6 +807,51 @@ void DockWidget::Private::close()
     }
 }
 
+void DockWidget::Private::hide()
+{
+    if (m_inClose)
+        return;
+    QScopedValueRollback<bool> guard(m_inClose, true);
+
+    if (!m_processingToggleAction && !q->isOpen()) {
+        q->setParentView(nullptr);
+        return;
+    }
+
+    if (m_isPersistentCentralDockWidget)
+        return;
+
+    setIsOpen(false);
+
+    // If it's overlayed and we're closing, we need to close the overlay
+    if (Controllers::SideBar *sb = DockRegistry::self()->sideBarForDockWidget(q)) {
+        auto mainWindow = sb->mainWindow();
+        if (mainWindow->overlayedDockWidget() == q) {
+            mainWindow->clearSideBarOverlay(/* deleteFrame=*/false);
+        }
+    }
+
+    if (!m_isForceClosing && q->isFloating()
+        && q->isVisible()) { // only user-closing is interesting to save the geometry
+        // We check for isVisible so we don't save geometry if you call close() on an already closed
+        // dock widget
+        m_lastPosition->setLastFloatingGeometry(q->view()->windowGeometry());
+    }
+
+    saveTabIndex();
+
+    // Do some cleaning. Widget is hidden, but we must hide the tab containing it.
+    if (Controllers::Group *group = this->group()) {
+        q->QObject::setParent(nullptr);
+        q->setParentView(nullptr);
+        group->removeWidget(q);
+
+        if (Controllers::SideBar *sb = DockRegistry::self()->sideBarForDockWidget(q)) {
+            sb->removeDockWidget(q);
+        }
+    }
+}
+
 bool DockWidget::Private::restoreToPreviousPosition()
 {
     if (!m_lastPosition->isValid())
@@ -959,6 +1009,12 @@ void DockWidget::Private::forceClose()
 {
     QScopedValueRollback<bool> rollback(m_isForceClosing, true);
     close();
+}
+
+void DockWidget::Private::forceCloseNotDestroy()
+{
+    QScopedValueRollback<bool> rollback(m_isForceClosing, true);
+    hide();
 }
 
 DockWidget::Private::Private(const QString &dockName, DockWidgetOptions options_,

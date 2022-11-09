@@ -112,6 +112,7 @@ public:
     Position::Ptr &lastPosition();
 
     void forceClose();
+    void forceCloseNotDestroy();
     QPoint defaultCenterPosForFloating();
 
     void onWindowActivated(std::shared_ptr<View> rootView);
@@ -122,6 +123,7 @@ public:
     void updateToggleAction();
     void updateFloatAction();
     void close();
+    void hide();
     bool restoreToPreviousPosition();
     void maybeRestoreToPreviousPosition();
     int currentTabIndex() const;

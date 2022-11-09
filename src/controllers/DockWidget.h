@@ -267,6 +267,8 @@ public:
      */
     void forceClose();
 
+    void forceCloseNotDestroy();
+
     /**
      * @brief Returns this dock widget's title bar.
      *

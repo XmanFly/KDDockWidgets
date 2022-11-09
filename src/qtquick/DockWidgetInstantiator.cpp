@@ -191,7 +191,8 @@ void DockWidgetInstantiator::componentComplete()
     }
 
     m_dockWidget = ViewFactory_qtquick::self()
-                       ->createDockWidget(m_uniqueName, qmlEngine(this))
+                       ->createDockWidget(m_uniqueName, qmlEngine(this), DockWidgetOption::DockWidgetOption_DeleteOnClose)
+//                       ->createDockWidget(m_uniqueName, qmlEngine(this))
                        ->asDockWidgetController();
 
     connect(m_dockWidget, &Controllers::DockWidget::titleChanged, this,
